@@ -1,0 +1,24 @@
+services:
+  app:
+    image: ghcr.io/khawajasaad22/hybrid-rag:latest
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      HF_HOME: /cache/huggingface
+      RAG_INDEX_PATH: /app/artifacts/index.json
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - model-cache:/cache
+      - data:/app/data
+      - artifacts:/app/artifacts
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [generation]
+    volumes:
+      - ollama-models:/root/.ollama
+volumes:
+  model-cache:
+  data:
+  artifacts:
+  ollama-models:

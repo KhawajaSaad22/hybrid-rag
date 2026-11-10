@@ -114,3 +114,66 @@ deploying a shared service.
 - https://sbert.net/docs/package_reference/cross_encoder/model.html
 - https://qdrant.tech/documentation/search/hybrid-queries/ (fusion background; Qdrant is not required)
 - https://docs.ollama.com/api
+
+## Docker image
+
+This project has its own CPU image: `ghcr.io/khawajasaad22/hybrid-rag:latest`.
+Images are stored in GitHub Container Registry; the repository contains the Dockerfile,
+Compose configuration, and build/publish workflow. The workflow tests the image and
+checks the running app before publishing `latest` and a full commit-SHA tag. A failed
+build does not publish. Use the Actions tab to confirm the first successful publication.
+
+With Docker Engine/Desktop and Compose installed, from this repository:
+
+```sh
+docker compose up --build -d
+```
+
+Open http://localhost:8501. To use the registry image after it is published:
+
+```sh
+docker compose pull app
+docker compose up -d --no-build app
+```
+
+If the registry package is private, authenticate with `docker login ghcr.io` using an
+account/token allowed to read the package. Repository visibility alone does not ensure
+anonymous image access. No custom registry secret is needed by the publishing workflow:
+it uses the repository's built-in GitHub token with package-write permission.
+
+The container runs as UID 10001. Named volumes preserve inputs, generated artifacts,
+and downloaded model weights. Weights and private datasets are not baked into the image.
+First model use requires internet access. These are Linux/amd64 CPU images; GPU/CUDA
+acceleration is not included. Initial builds can take several minutes.
+
+Use `docker compose exec app python ...` for the documented CLI commands. Inputs are
+container paths, not Windows host paths. Copy real files with `docker compose cp`:
+
+```sh
+docker compose cp ./my-input app:/app/data/my-input
+docker compose logs -f app
+docker compose down
+```
+
+`down` keeps named volumes; `down -v` deletes them, including your generated work.
+The app port is published on localhost only. Container health means Streamlit is running;
+you still need to prepare data and fit/index models before using the app workflow.
+
+```sh
+docker compose exec app python rag.py ingest sample_docs
+docker compose exec app python rag.py ask "How do I fix E104?"
+```
+
+The index persists at `/app/artifacts/index.json` via `RAG_INDEX_PATH`.
+
+### Optional Ollama service
+
+```sh
+docker compose --profile generation up -d
+docker compose exec ollama ollama pull YOUR_MODEL_NAME
+```
+
+Choose a text model for RAG or a vision-capable model for video verification, then enter
+its installed name in the UI. Ollama is accessible only inside the Compose network;
+no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
+service also runs on CPU. Its model quality and memory needs depend on your selection.

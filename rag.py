@@ -5,12 +5,13 @@ from functools import lru_cache
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_INDEX = ROOT / "index.json"
+DEFAULT_INDEX = Path(os.environ.get("RAG_INDEX_PATH", str(ROOT / "index.json")))
 EMBEDDER = "sentence-transformers/all-MiniLM-L6-v2"
 RERANKER = "cross-encoder/ms-marco-MiniLM-L6-v2"
 
@@ -154,7 +155,8 @@ def search(query, index, mode="hybrid-rerank", candidates=30, top_k=5):
     return results
 
 
-def answer(query, results, model="", base_url="http://localhost:11434"):
+def answer(query, results, model="", base_url=None):
+    base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     if not results:
         return "No matching evidence found."
     if not model:
