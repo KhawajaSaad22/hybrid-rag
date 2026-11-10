@@ -1,0 +1,6 @@
+[
+  {"question": "How do I fix E104?", "relevant_sources": ["support.md"]},
+  {"question": "How much annual leave do employees receive?", "relevant_sources": ["handbook.md"]},
+  {"question": "How long are database backups kept?", "relevant_sources": ["support.md"]},
+  {"question": "What should I do if my laptop disappears?", "relevant_sources": ["handbook.md"]}
+]
