@@ -26,7 +26,7 @@ For macOS/Linux, use `python3 -m venv .venv` and `.venv/bin/python` instead.
 ```
 
 This creates `index.json`, containing passage text, metadata, and normalized vectors.
-To use your own documents, replace `sample_docs` with a folder path in quotes.
+To use my own documents, replace `sample_docs` with a folder path in quotes.
 TXT and Markdown must be UTF-8. PDFs must contain selectable text; OCR is not included.
 Each PDF page is chunked separately so citations preserve its actual page number.
 Rebuild the index after editing, adding, or removing documents. Ingestion replaces it.
@@ -50,13 +50,13 @@ RRF (k=60), then reranks up to 30 fused candidates and returns five passages.
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-Open the local address printed by Streamlit. Build/rebuild your document collection
+Open the local address printed by Streamlit. Build/rebuild my document collection
 from the sidebar, choose a retrieval mode, ask a question, and expand the source cards.
 The interface accepts a local folder, rather than uploading files.
 
 ## 5. Optional: generate written answers using Ollama
 
-Install Ollama from https://ollama.com and start it. Pull a model that fits your machine,
+Install Ollama from https://ollama.com and start it. Pull a model that fits my machine,
 for example `ollama pull llama3.2:3b`. Then:
 
 ```powershell
@@ -75,7 +75,7 @@ call a hosted generation API. Third-party model downloads still require internet
 ```
 
 Evaluation compares BM25, vector, hybrid, and hybrid + reranking. Edit `questions.json`
-with your own questions and relevant relative source filenames. It reports source-level
+with my own questions and relevant relative source filenames. It reports source-level
 hit@5, recall@5, and MRR@5; it does not measure claim correctness or passage-level recall.
 The tiny example corpus is a smoke test, not evidence of retrieval superiority.
 Separate held-out questions from questions used to tune settings.
@@ -155,7 +155,7 @@ docker compose logs -f app
 docker compose down
 ```
 
-`down` keeps named volumes; `down -v` deletes them, including your generated work.
+`down` keeps named volumes; `down -v` deletes them, including my generated work.
 The app port is published on localhost only. Container health means Streamlit is running;
 you still need to prepare data and fit/index models before using the app workflow.
 
@@ -176,4 +176,4 @@ docker compose exec ollama ollama pull YOUR_MODEL_NAME
 Choose a text model for RAG or a vision-capable model for video verification, then enter
 its installed name in the UI. Ollama is accessible only inside the Compose network;
 no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
-service also runs on CPU. Its model quality and memory needs depend on your selection.
+service also runs on CPU. Its model quality and memory needs depend on my selection.
