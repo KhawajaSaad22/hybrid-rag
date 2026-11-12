@@ -1,5 +1,10 @@
 # Local verification
 
+Reliability update (12 November 2026): regression tests now cover negative-query
+evaluation, document removal/reindexing, PDF page routing and real PDF text
+extraction. Model retrieval is simulated for deterministic reindex tests. Actual
+local answer-model correctness and broad private-document accuracy remain unverified.
+
 Verified on this workspace with Python 3.14:
 
 - Dependency installation completed; `pip check` reported no broken requirements.

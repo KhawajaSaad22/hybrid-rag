@@ -1,5 +1,12 @@
 # Hybrid RAG with reranking
 
+Evaluation update: `evaluate.py` accepts `relevant_sources: []` for unanswerable
+questions and reports negative-query false-positive/abstention rates separately.
+Use `--output report.json` to save metrics. Empty retrieval output counts as
+abstention; dense retrieval is not automatically calibrated. These metrics do not
+score answer correctness. Regression tests cover PDF page references, actual PDF
+text extraction and removal/update of indexed documents after reindexing.
+
 A local learning project: real BM25 + dense semantic search, reciprocal rank fusion,
 cross-encoder reranking, source excerpts, optional Ollama answers, CLI, and Streamlit UI.
 No paid API key is required. First use downloads embedding/reranking model weights.
