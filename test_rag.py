@@ -4,6 +4,32 @@ import rag
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_malformed_indexes_fail_before_model_loading(self):
+        import copy
+        valid={'version':1,'embedding_model':'test','chunks':[{'id':'a','source':'a.md','page':None,'text':'Evidence'}],'vectors':[[1.,0.]]}
+        self.assertIs(rag.validate_index(valid),valid)
+        variants=[None,{},dict(valid,vectors=[[float('nan'),0]]),dict(valid,vectors=[[]]),
+                  dict(valid,vectors=[[True,0]]),dict(valid,chunks=[{}]),dict(valid,chunks=valid['chunks']*2,vectors=[[1.,0.],[1.]]),
+                  dict(valid,chunks=valid['chunks']*2,vectors=valid['vectors']*2)]
+        for index in variants:
+            with self.subTest(index=index),self.assertRaisesRegex(ValueError,'Rebuild'):rag.validate_index(copy.deepcopy(index))
+    def test_failed_rebuild_keeps_existing_index(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        import numpy as np
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);docs=root/'docs';docs.mkdir();(docs/'a.md').write_text('Evidence')
+            output=root/'index.json';output.write_text('existing index')
+            fake=SimpleNamespace(encode_document=lambda *a,**k:np.array([[float('nan')]]))
+            with patch('rag.embedder',return_value=fake),self.assertRaises(ValueError):rag.build_index(docs,output)
+            self.assertEqual(output.read_text(),'existing index');self.assertEqual(list(root.glob('*.tmp')),[])
+    def test_query_dimension_error_is_actionable(self):
+        import numpy as np
+        from types import SimpleNamespace
+        fake=SimpleNamespace(encode_query=lambda *a,**k:np.ones(3))
+        with patch('rag.embedder',return_value=fake),self.assertRaisesRegex(ValueError,'dimensions'):
+            rag.search('query',{'chunks':[{'text':'Evidence'}],'embedding_model':'test','vectors':[[1.,0.]]},mode='vector')
     def test_explicit_device_validation(self):
         with patch('torch.cuda.is_available',return_value=False):
             self.assertEqual(rag.resolve_device('auto'),'cpu')

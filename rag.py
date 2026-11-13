@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 import re
+import tempfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
@@ -84,21 +85,42 @@ def build_index(folder, output=DEFAULT_INDEX,device=None):
         show_progress_bar=True).tolist()
     data = {"version": 1, "embedding_model": EMBEDDER,
             "chunks": chunks, "vectors": vectors,"encoding_device":str(getattr(encoder,'device','unknown'))}
+    validate_index(data)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_suffix(output.suffix + ".tmp")
-    temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(output)
+    temporary=None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w',encoding='utf-8',dir=output.parent,prefix=output.name+'.',suffix='.tmp',delete=False) as stream:
+            temporary=Path(stream.name)
+            json.dump(data,stream,ensure_ascii=False,allow_nan=False)
+        temporary.replace(output)
+    finally:
+        if temporary is not None:temporary.unlink(missing_ok=True)
     return len(chunks)
 
 
-def load_index(path=DEFAULT_INDEX):
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if data.get("version") != 1 or not data.get("chunks"):
-        raise ValueError("Unsupported or empty index. Rebuild it.")
-    if len(data["chunks"]) != len(data["vectors"]):
-        raise ValueError("Index is inconsistent. Rebuild it.")
+def validate_index(data):
+    error='Invalid index. Rebuild it from the source documents.'
+    if not isinstance(data,dict) or data.get('version')!=1:raise ValueError(error)
+    chunks=data.get('chunks');vectors=data.get('vectors')
+    if not isinstance(data.get('embedding_model'),str) or not data['embedding_model'].strip():raise ValueError(error)
+    if not isinstance(chunks,list) or not chunks or not isinstance(vectors,list) or len(chunks)!=len(vectors):raise ValueError(error)
+    seen=set();width=None
+    for chunk,vector in zip(chunks,vectors):
+        if not isinstance(chunk,dict) or any(not isinstance(chunk.get(k),str) or not chunk[k].strip() for k in ('id','source','text')):raise ValueError(error)
+        if chunk['id'] in seen:raise ValueError(error)
+        seen.add(chunk['id']);page=chunk.get('page')
+        if page is not None and (type(page) is not int or page<1):raise ValueError(error)
+        if not isinstance(vector,list) or not vector or width is not None and len(vector)!=width:raise ValueError(error)
+        width=len(vector)
+        if any(type(v) not in (int,float) or not math.isfinite(v) for v in vector):raise ValueError(error)
     return data
+
+
+def load_index(path=DEFAULT_INDEX):
+    try:return validate_index(json.loads(Path(path).read_text(encoding='utf-8')))
+    except (json.JSONDecodeError,UnicodeDecodeError) as exc:
+        raise ValueError('Cannot read index JSON. Rebuild it from the source documents.') from exc
 
 
 def bm25(query, texts):
@@ -144,7 +166,10 @@ def search(query, index, mode="hybrid-rerank", candidates=30, top_k=5,device=Non
         import numpy as np
         vector = embedder(index["embedding_model"],device).encode_query(
             query, normalize_embeddings=True)
-        scores = np.asarray(index["vectors"], dtype="float32") @ vector
+        matrix=np.asarray(index['vectors'],dtype='float32');vector=np.asarray(vector,dtype='float32')
+        if matrix.ndim!=2 or vector.shape!=(matrix.shape[1],) or not np.isfinite(matrix).all() or not np.isfinite(vector).all():
+            raise ValueError('Embedding dimensions or values are incompatible. Rebuild the index with this model.')
+        scores = matrix @ vector
         rankings.append(np.argsort(-scores).tolist()[:candidates])
     ordered = fuse(rankings)[:candidates]
     rerank_scores = {}

@@ -187,3 +187,9 @@ Choose a text model for RAG or a vision-capable model for video verification, th
 its installed name in the UI. Ollama is accessible only inside the Compose network;
 no host port is published. `OLLAMA_BASE_URL` selects the service endpoint. This optional
 service also runs on CPU. Its model quality and memory needs depend on my selection.
+
+## Index reliability update — 13 November 2026
+
+Index loading validates version, model name, chunk fields/unique IDs, page references and finite rectangular vectors. Incompatible query-vector dimensions produce a rebuild instruction. Rebuilding validates embeddings before publishing and uses a unique temporary file plus atomic replacement, preserving the previous index when embedding or writing fails. Valid existing version-1 indexes remain supported.
+
+The real cached embedding/reranking models passed CUDA validation with the stricter persisted index. This establishes execution and file compatibility, not retrieval accuracy. Incremental source updates, multi-process scheduling and real-data evaluation remain future work.
