@@ -1,5 +1,8 @@
 # Hybrid RAG with reranking
 
+Optional GPU execution is configured in [GPU.md](GPU.md). The default registry image
+uses CPU PyTorch; the GPU override builds a separate CUDA-capable local image.
+
 Evaluation update: `evaluate.py` accepts `relevant_sources: []` for unanswerable
 questions and reports negative-query false-positive/abstention rates separately.
 Use `--output report.json` to save metrics. Empty retrieval output counts as
