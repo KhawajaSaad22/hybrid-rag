@@ -53,27 +53,37 @@ def read_documents(folder):
                        "source": source, "page": page, "text": passage}
 
 
-@lru_cache(maxsize=2)
-def embedder(name=EMBEDDER):
+def resolve_device(device=None):
+    import torch
+    device=device or os.environ.get('INSPECTION_DEVICE','auto')
+    if device=='auto':return 'cuda' if torch.cuda.is_available() else 'cpu'
+    if device not in ('cpu','cuda'):raise ValueError('Device must be auto, cpu or cuda')
+    if device=='cuda' and not torch.cuda.is_available():raise ValueError('CUDA requested but unavailable')
+    return device
+
+
+@lru_cache(maxsize=4)
+def embedder(name=EMBEDDER,device=None):
     from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(name)
+    return SentenceTransformer(name,device=resolve_device(device))
 
 
-@lru_cache(maxsize=1)
-def reranker():
+@lru_cache(maxsize=2)
+def reranker(device=None):
     from sentence_transformers import CrossEncoder
-    return CrossEncoder(RERANKER)
+    return CrossEncoder(RERANKER,device=resolve_device(device))
 
 
-def build_index(folder, output=DEFAULT_INDEX):
+def build_index(folder, output=DEFAULT_INDEX,device=None):
     chunks = list(read_documents(folder))
     if not chunks:
         raise ValueError("No text found. Use UTF-8 TXT/MD or text-based PDFs; scanned PDFs need OCR.")
-    vectors = embedder().encode_document(
+    encoder=embedder(EMBEDDER,device)
+    vectors = encoder.encode_document(
         [c["text"] for c in chunks], normalize_embeddings=True,
         show_progress_bar=True).tolist()
     data = {"version": 1, "embedding_model": EMBEDDER,
-            "chunks": chunks, "vectors": vectors}
+            "chunks": chunks, "vectors": vectors,"encoding_device":str(getattr(encoder,'device','unknown'))}
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
@@ -117,7 +127,7 @@ def fuse(rankings, k=60):
     return sorted(scores, key=lambda i: (-scores[i], i))
 
 
-def search(query, index, mode="hybrid-rerank", candidates=30, top_k=5):
+def search(query, index, mode="hybrid-rerank", candidates=30, top_k=5,device=None):
     if not query.strip():
         raise ValueError("Enter a question.")
     if mode not in {"bm25", "vector", "hybrid", "hybrid-rerank"}:
@@ -132,14 +142,14 @@ def search(query, index, mode="hybrid-rerank", candidates=30, top_k=5):
                                key=lambda i: -scores[i])[:candidates])
     if mode != "bm25":
         import numpy as np
-        vector = embedder(index["embedding_model"]).encode_query(
+        vector = embedder(index["embedding_model"],device).encode_query(
             query, normalize_embeddings=True)
         scores = np.asarray(index["vectors"], dtype="float32") @ vector
         rankings.append(np.argsort(-scores).tolist()[:candidates])
     ordered = fuse(rankings)[:candidates]
     rerank_scores = {}
     if mode == "hybrid-rerank" and ordered:
-        predictions = reranker().predict([(query, texts[i]) for i in ordered])
+        predictions = reranker(device).predict([(query, texts[i]) for i in ordered])
         rerank_scores = {i: float(s) for i, s in zip(ordered, predictions)}
         ordered.sort(key=lambda i: -rerank_scores[i])
     results, seen = [], set()
@@ -197,13 +207,14 @@ def main():
     ask.add_argument("--mode", choices=["bm25", "vector", "hybrid", "hybrid-rerank"], default="hybrid-rerank")
     ask.add_argument("--model", default="", help="Optional installed Ollama model name")
     ask.add_argument("--top-k", type=int, default=5)
+    for command in (ingest,ask):command.add_argument('--device',choices=['auto','cpu','cuda'],default=None)
     args = parser.parse_args()
     try:
         if args.command == "ingest":
-            print(f"Indexed {build_index(args.folder, args.index)} passages.")
+            print(f"Indexed {build_index(args.folder, args.index,args.device)} passages.")
         else:
             results = search(args.question, load_index(args.index), mode=args.mode,
-                             top_k=args.top_k, candidates=max(30, args.top_k))
+                             top_k=args.top_k, candidates=max(30, args.top_k),device=args.device)
             print(answer(args.question, results, args.model))
             for r in results:
                 print(f"[{r['citation']}] {r['source']} | page {r['page'] or '-'} | {r['id']}")

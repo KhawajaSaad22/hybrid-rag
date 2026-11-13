@@ -19,13 +19,18 @@ Versions remain compatibility ranges, so record/lock the validated deployment st
 
 ## GPU workload
 
-The embedding and reranking models use the model library's normal device selection. A CUDA-enabled PyTorch build and visible GPU make GPU execution available; confirm the loaded model's device when profiling. Document parsing, indexing metadata and interface work still run on CPU.
+Embedding and cross-encoder reranking accept --device auto|cpu|cuda on ingest/ask. INSPECTION_DEVICE also controls application selection. Explicit CUDA fails when unavailable. Parsing, BM25, stored-vector search and interface work remain on CPU.
 
 ## Validation status — 13 November 2026
 
-The override parses successfully. GPU visibility and real student-model training were
-verified on my RTX 4060 in the annotation-assistant project using the existing Linux
-CUDA image (PyTorch 2.15.0+cu132). This repository's complete GPU application image
-and its real model path have not been independently executed in this update.
-The CPU container and its normal tests remain available. No performance or accuracy
-improvement is claimed without measuring the actual model/input workload.
+Real all-MiniLM-L6-v2 embeddings and ms-marco-MiniLM-L6-v2 cross-encoder reranking both ran on cuda:0 using two generated text documents.
+
+Verified on my RTX 4060 in a local Linux container with PyTorch 2.15.0+cu132 / CUDA 13.2 using cached weights. These are real model execution checks on synthetic fixtures, not accuracy or speed benchmarks. The complete application GPU image was not independently rebuilt in this patch. CPU CI does not validate CUDA.
+
+To repeat in a CUDA-capable environment containing dependencies and cached weights:
+
+```sh
+python gpu_validate.py --device cuda --output artifacts/gpu-validation.json
+```
+
+The output path must be new. Validation defaults to offline model loading; --allow-download explicitly permits downloads. No real inspection dataset is needed.

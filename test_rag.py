@@ -4,6 +4,13 @@ import rag
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_explicit_device_validation(self):
+        with patch('torch.cuda.is_available',return_value=False):
+            self.assertEqual(rag.resolve_device('auto'),'cpu')
+            self.assertEqual(rag.resolve_device('cpu'),'cpu')
+            with self.assertRaisesRegex(ValueError,'CUDA'):rag.resolve_device('cuda')
+            with self.assertRaises(ValueError):rag.resolve_device('invalid')
+
     def test_negative_query_evaluation(self):
         from evaluate import evaluate
         def retrieve(question,index,mode):
